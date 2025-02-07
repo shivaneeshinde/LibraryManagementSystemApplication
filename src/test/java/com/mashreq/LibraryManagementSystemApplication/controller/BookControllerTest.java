@@ -20,9 +20,8 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
 public class BookControllerTest {
@@ -44,93 +43,76 @@ public class BookControllerTest {
     }
 
     @Test
-    void testAddMultipleBooksSuccess() throws Exception {
-        Book book1 = new Book();
-        book1.setTitle("Effective Java");
-        book1.setAuthor("Joshua Bloch");
-        book1.setGenre("Java Programming");
-        book1.setBorrowed(false);
+    void testAddBookSuccess() throws Exception {
+        Book book = new Book(1L, "Java Concurrency in Practice", "Brian Goetz", "Programming", false);
+        when(bookService.addBook(any(Book.class))).thenReturn(book);
 
-        Book book2 = new Book();
-        book2.setTitle("Data Structures and Algorithms in Java");
-        book2.setAuthor("Robert Lafore");
-        book2.setGenre("Data Structures, Algorithms");
-        book2.setBorrowed(false);
-
-        // Mock the service to return void (success) when called
-        doNothing().when(bookService).addMultipleBooks(anyList());
-
-        mockMvc.perform(post("/books/add-multiple")
+        mockMvc.perform(post("/books/add")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Arrays.asList(book1, book2))))
+                        .content(objectMapper.writeValueAsString(book)))
                 .andExpect(status().isOk())
-                .andExpect(content().string("Books added successfully"));
+                .andExpect(jsonPath("$.message").value("Book added successfully"));
 
-        // Verify that the service method was called once
-        verify(bookService, times(1)).addMultipleBooks(anyList());
+        verify(bookService, times(1)).addBook(any(Book.class));
     }
 
     @Test
-    void testAddMultipleBooksError() throws Exception {
-        Book book1 = new Book();
-        book1.setTitle("Effective Java");
-        book1.setAuthor("Joshua Bloch");
-        book1.setGenre("Java Programming");
-        book1.setBorrowed(false);
+    void testAddMultipleBooksSuccess() throws Exception {
+        Book book1 = new Book(1L, "Effective Java", "Joshua Bloch", "Java", false);
+        Book book2 = new Book(2L, "Clean Code", "Robert C. Martin", "Programming", false);
+        List<Book> books = Arrays.asList(book1, book2);
 
-        // Simulate an error in the service layer
-        doThrow(new RuntimeException("Database error")).when(bookService).addMultipleBooks(anyList());
+        when(bookService.addMultipleBooks(anyList())).thenReturn(books);
 
         mockMvc.perform(post("/books/add-multiple")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Arrays.asList(book1))))
-                .andExpect(status().isInternalServerError())
-                .andExpect(content().string("Error adding books"));
+                        .content(objectMapper.writeValueAsString(books)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Books added successfully"));
 
-        // Verify the service was called
         verify(bookService, times(1)).addMultipleBooks(anyList());
     }
 
-
     @Test
-    void testGetAllBooks_Success() {
-        // Arrange
-        List<Book> mockBooks = Arrays.asList(
-                new Book(1L, "Java 8 in Action", "Raoul-Gabriel Urma", "Technology", false),
-                new Book(2L, "Data Structures and Algorithms", "Narasimha Karumanchi", "Technology", false)
+    void testGetAllBooksSuccess() {
+        List<Book> books = Arrays.asList(
+                new Book(1L, "Refactoring", "Martin Fowler", "Software Engineering", false),
+                new Book(2L, "Design Patterns", "Erich Gamma", "Software Design", false)
         );
+        when(bookService.getAllBooks()).thenReturn(books);
 
-        when(bookService.getAllBooks()).thenReturn(mockBooks);
+        ResponseEntity<ApiResponse<List<Book>>> response = bookController.getAllBooks();
 
-        // Act
-        ResponseEntity<?> response = bookController.getAllBooks();
-        ApiResponse<?> apiResponse = (ApiResponse<?>) response.getBody();
-
-        // Assert
-        assertNotNull(apiResponse);
-        assertEquals(200, apiResponse.getStatusCode());
-        assertEquals("Books fetched successfully", apiResponse.getMessage());
-        assertEquals(2, ((List<?>) apiResponse.getData()).size());
-
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatusCode());
+        assertEquals(2, response.getBody().getData().size());
         verify(bookService, times(1)).getAllBooks();
     }
 
     @Test
-    void testGetAllBooks_Failure() {
-        // Arrange
-        when(bookService.getAllBooks()).thenThrow(new RuntimeException("Database error"));
+    void testSearchBooksSuccess() throws Exception {
+        List<Book> books = Arrays.asList(new Book(1L, "Head First Java", "Kathy Sierra", "Java", false));
+        when(bookService.searchBooks("Head First Java", null, null)).thenReturn(books);
 
-        // Act
-        ResponseEntity<?> response = bookController.getAllBooks();
-        ApiResponse<?> apiResponse = (ApiResponse<?>) response.getBody();
+        mockMvc.perform(get("/books/search")
+                        .param("title", "Head First Java"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Books retrieved successfully"))
+                .andExpect(jsonPath("$.data").isArray());
 
-        // Assert
-        assertNotNull(apiResponse);
-        assertEquals(500, apiResponse.getStatusCode());
-        assertEquals("Failed to fetch books", apiResponse.getMessage());
-        assertNull(apiResponse.getData());
-
-        verify(bookService, times(1)).getAllBooks();
+        verify(bookService, times(1)).searchBooks("Head First Java", null, null);
     }
 
+    @Test
+    void testGetBookByIdSuccess() throws Exception {
+        Book book = new Book(1L, "You Don't Know JS", "Kyle Simpson", "JavaScript", false);
+        when(bookService.getBookById(1L)).thenReturn(book);
+
+        mockMvc.perform(get("/books/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Book retrieved successfully"))
+                .andExpect(jsonPath("$.data.title").value("You Don't Know JS"));
+
+        verify(bookService, times(1)).getBookById(1L);
+    }
 }
