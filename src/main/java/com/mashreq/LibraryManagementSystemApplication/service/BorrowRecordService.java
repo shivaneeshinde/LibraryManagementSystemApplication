@@ -36,7 +36,7 @@ public class BorrowRecordService {
                 record.setStudent(student);
                 record.setBook(book);
                 record.setBorrowDate(new Date());
-                record.setStatus("borrowed");
+                record.setReturned(true);
 
                 // Update book status
                 bookService.updateBookStatus(bookId, true);
@@ -49,9 +49,9 @@ public class BorrowRecordService {
 
     public BorrowRecord returnBook(Long borrowRecordId) {
         BorrowRecord record = borrowRecordRepository.findById(borrowRecordId).orElse(null);
-        if (record != null && "borrowed".equals(record.getStatus())) {
+        if (record != null && record.isReturned()) {
             record.setReturnDate(new Date());
-            record.setStatus("returned");
+            record.setReturned(false);
 
             // Update book status
             bookService.updateBookStatus(record.getBook().getId(), false);

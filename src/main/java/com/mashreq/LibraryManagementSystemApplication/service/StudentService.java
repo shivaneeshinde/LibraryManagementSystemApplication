@@ -12,7 +12,11 @@ public class StudentService {
     @Autowired
     private StudentRepository studentRepository;
 
-    public Student addStudent(String name, String email) {
+    public Student addStudent(Student student) {
+        return studentRepository.save(student);
+    }
+
+    public Student saveStudent(String name, String email) {
         Student student = new Student();
         student.setName(name);
         student.setEmail(email);

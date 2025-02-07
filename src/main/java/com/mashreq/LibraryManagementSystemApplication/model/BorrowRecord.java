@@ -22,5 +22,5 @@ public class BorrowRecord {
 
     private Date borrowDate;
     private Date returnDate;
-    private String status;
+    private boolean returned;
 }
