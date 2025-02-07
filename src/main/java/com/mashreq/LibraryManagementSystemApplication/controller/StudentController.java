@@ -12,9 +12,9 @@ public class StudentController {
     @Autowired
     private StudentService studentService;
 
-    @PostMapping
-    public Student createStudent(@RequestBody Student student) {
-        return studentService.saveStudent(student);
+    @PostMapping("/add")
+    public Student addStudent(@RequestParam String name, @RequestParam String email) {
+        return studentService.addStudent(name, email);
     }
 
     @GetMapping("/{id}")
@@ -22,4 +22,3 @@ public class StudentController {
         return studentService.getStudentById(id);
     }
 }
-

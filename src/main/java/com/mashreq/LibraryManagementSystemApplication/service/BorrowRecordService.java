@@ -6,10 +6,17 @@ import com.mashreq.LibraryManagementSystemApplication.model.Student;
 import com.mashreq.LibraryManagementSystemApplication.repository.BorrowRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.Date;
+import java.util.List;
 
 @Service
+@Slf4j
 public class BorrowRecordService {
     @Autowired
     private BorrowRecordRepository borrowRecordRepository;
@@ -53,5 +60,23 @@ public class BorrowRecordService {
         }
         return null;
     }
+
+    public List<BorrowRecord> searchBorrowRecords(Long studentId, Long bookId, Boolean returned) {
+        log.info("Searching borrow records with studentId: {}, bookId: {}, returned: {}", studentId, bookId, returned);
+        return borrowRecordRepository.searchBorrowRecords(studentId, bookId, returned);
+    }
+
+    public Page<BorrowRecord> searchBorrowRecordsPaged(Long studentId, Long bookId, Boolean returned, int page, int size) {
+        log.info("Searching borrow records with pagination: Page={}, Size={}", page, size);
+        Pageable pageable = PageRequest.of(page, size);
+        return borrowRecordRepository.searchBorrowRecordsPaged(studentId, bookId, returned, pageable);
+    }
+
+    @Cacheable(value = "borrowRecords", key = "#studentId + #bookId + #returned")
+    public List<BorrowRecord> searchBorrowRecordsFromCache(Long studentId, Long bookId, Boolean returned) {
+        log.info("Fetching borrow records from database (cache miss)");
+        return borrowRecordRepository.searchBorrowRecords(studentId, bookId, returned);
+    }
+
 }
 
