@@ -1,53 +1,53 @@
 package com.mashreq.LibraryManagementSystemApplication.service;
 
+import com.mashreq.LibraryManagementSystemApplication.exception.ResourceNotFoundException;
 import com.mashreq.LibraryManagementSystemApplication.model.Book;
 import com.mashreq.LibraryManagementSystemApplication.repository.BookRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
-//import org.slf4j.log;
-//import org.slf4j.logFactory;
 
 @Service
 @Slf4j
 public class BookService {
 
-    //private static final log log = logFactory.getlog(BookService.class);
-
     @Autowired
     private BookRepository bookRepository;
 
+    // Add a single book
     public Book addBook(Book book) {
+        log.info("Adding a new book: {}", book.getTitle());
         return bookRepository.save(book);
     }
 
-    // Add multiple books using Stream
-    public void addMultipleBooks(List<Book> books) {
-        try {
-            log.info("Adding multiple books using stream");
+    // Add multiple books using Stream API
+    public List<Book> addMultipleBooks(List<Book> books) {
+        log.info("Adding {} books to the repository", books.size());
 
-            // Process each book and save it to the repository
-            List<Book> processedBooks = books.stream()
-                    .map(book -> {
-                        log.debug("Processing book: {}", book.getTitle());
-                        return book;
-                    })
-                    .collect(Collectors.toList());
+        // Save all books in batch
+        List<Book> savedBooks = bookRepository.saveAll(books);
 
-            // Save all books in one batch
-            bookRepository.saveAll(processedBooks);
-            log.info("All books have been added successfully");
-        } catch (Exception e) {
-            log.error("Error occurred while adding books", e);
-            throw e;
-        }
+        log.info("Successfully added {} books", savedBooks.size());
+        return savedBooks;
     }
 
+    // Get book by ID
     public Book getBookById(Long id) {
-        return bookRepository.findById(id).orElse(null);
+        log.info("Fetching book with ID: {}", id);
+
+        return bookRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("Book with ID {} not found", id);
+                    return new ResourceNotFoundException("Book not found with ID: " + id);
+                });
     }
 
     // Get all books
@@ -56,24 +56,33 @@ public class BookService {
         return bookRepository.findAll();
     }
 
+    // Update book status (borrowed or not)
     public void updateBookStatus(Long bookId, boolean status) {
+        log.info("Updating book status for ID {}: Borrowed = {}", bookId, status);
+
         Book book = getBookById(bookId);
-        if (book != null) {
-            book.setBorrowed(status);
-            addBook(book);
-        }
+        book.setBorrowed(status);
+        bookRepository.save(book);
+
+        log.info("Book status updated successfully for ID {}", bookId);
     }
 
-    // Search books by title, author, or genre using Stream
+    // Search books by title, author, or genre using Stream API
     public List<Book> searchBooks(String title, String author, String genre) {
-        List<Book> books = bookRepository.findAll(); // Fetch all books from the DB
-
-        // Use Java Streams to filter based on provided parameters
-        return books.stream()
-                .filter(book -> (title == null || book.getTitle().toLowerCase().contains(title.toLowerCase())))
-                .filter(book -> (author == null || book.getAuthor().toLowerCase().contains(author.toLowerCase())))
-                .filter(book -> (genre == null || book.getGenre().toLowerCase().contains(genre.toLowerCase())))
-                .collect(Collectors.toList());
+        log.info("Searching books with title: {}, author: {}, genre: {}", title, author, genre);
+        return bookRepository.searchBooks(title, author, genre);
     }
-}
 
+    public Page<Book> searchBooksPaged(String title, String author, String genre, int page, int size) {
+        log.info("Searching books with pagination: Page={}, Size={}", page, size);
+        Pageable pageable = PageRequest.of(page, size);
+        return bookRepository.searchBooksPaged(title, author, genre, pageable);
+    }
+
+    @Cacheable(value = "books", key = "#title + #author + #genre")
+    public List<Book> searchBooksFromCache(String title, String author, String genre) {
+        log.info("Fetching books from database (cache miss)");
+        return bookRepository.searchBooks(title, author, genre);
+    }
+
+}

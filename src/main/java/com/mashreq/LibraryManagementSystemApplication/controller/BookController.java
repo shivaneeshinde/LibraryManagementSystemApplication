@@ -5,12 +5,10 @@ import com.mashreq.LibraryManagementSystemApplication.model.Book;
 import com.mashreq.LibraryManagementSystemApplication.service.BookService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-
-//import org.slf4j.log;
-//import org.slf4j.logFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
 
@@ -19,71 +17,78 @@ import java.util.List;
 @Slf4j
 public class BookController {
 
-    //private static final log log = logFactory.getlog(BookController.class);
-
     @Autowired
     private BookService bookService;
 
     // Add a new book
     @PostMapping("/add")
-    public Book addBook(@RequestBody Book book) {
-        return bookService.addBook(book);
+    public ResponseEntity<ApiResponse<Book>> addBook(@RequestBody Book book) {
+        log.info("Request to add a new book: {}", book);
+        Book addedBook = bookService.addBook(book);
+        log.info("Book added successfully: {}", addedBook);
+        return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "Book added successfully", addedBook));
     }
 
     // Add multiple books
     @PostMapping("/add-multiple")
-    public ResponseEntity<String> addMultipleBooks(@RequestBody List<Book> books) {
-        try {
-            log.info("Request to add multiple books: {}", books);
-            bookService.addMultipleBooks(books);
-            log.info("Books added successfully");
-
-            // Return success response
-            return new ResponseEntity<>("Books added successfully", HttpStatus.OK);
-
-        } catch (Exception e) {
-            log.error("Error occurred while adding books", e);
-            return new ResponseEntity<>("Error adding books", HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+    public ResponseEntity<ApiResponse<List<Book>>> addMultipleBooks(@RequestBody List<Book> books) {
+        log.info("Request to add multiple books: {}", books);
+        List<Book> addedBooks = bookService.addMultipleBooks(books);
+        log.info("Books added successfully: {}", addedBooks.size());
+        return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "Books added successfully", addedBooks));
     }
 
     // Get all books
     @GetMapping("/all")
-    public ResponseEntity<?> getAllBooks() {
+    public ResponseEntity<ApiResponse<List<Book>>> getAllBooks() {
         log.info("Received request to fetch all books");
-        try {
-            List<Book> books = bookService.getAllBooks();
-            log.info("Fetched {} books successfully", books.size());
-            return ResponseEntity.ok().body(new ApiResponse<>(HttpStatus.OK.value(), "Books fetched successfully", books));
-        } catch (Exception e) {
-            log.error("Error while fetching books: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Failed to fetch books", null));
-        }
+        List<Book> books = bookService.getAllBooks();
+        log.info("Fetched {} books successfully", books.size());
+        return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "Books fetched successfully", books));
     }
 
     // Search for books by title, author, or genre
     @GetMapping("/search")
-    public ResponseEntity<?> searchBooks(@RequestParam(required = false) String title,
-                                  @RequestParam(required = false) String author,
-                                  @RequestParam(required = false) String genre) {
-        log.info("Received request to search a book based on title");
-        try {
-            List<Book> books = bookService.searchBooks(title, author, genre);
-            log.info("Searched {} books successfully", books.size());
-            return ResponseEntity.ok().body(new ApiResponse<>(HttpStatus.OK.value(), "Seached Books successfully", books));
-        } catch (Exception e) {
-            log.error("Error while fetching books: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Failed to search books", null));
-        }
+    public ResponseEntity<ApiResponse<List<Book>>> searchBooks(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String genre) {
+        log.info("Received request to search books with title: {}, author: {}, genre: {}", title, author, genre);
+        List<Book> books = bookService.searchBooks(title, author, genre);
+        log.info("Found {} matching books", books.size());
+        return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "Books retrieved successfully", books));
+    }
+
+//    Search for books by title, author, or genre (With Caching)
+    @GetMapping("/searchBooksFromCache")
+    public ResponseEntity<ApiResponse<List<Book>>> searchBooksFromCache(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String genre) {
+
+        log.info("Received search request with title: {}, author: {}, genre: {}", title, author, genre);
+        List<Book> books = bookService.searchBooks(title, author, genre);
+        return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "Books fetched successfully", books));
+    }
+
+    @GetMapping("/search-paged")
+    public ResponseEntity<Page<Book>> searchBooksPaged(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String genre,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Page<Book> books = bookService.searchBooksPaged(title, author, genre, page, size);
+        return ResponseEntity.ok(books);
     }
 
     // Get book by ID
     @GetMapping("/{id}")
-    public Book getBookById(@PathVariable Long id) {
-        return bookService.getBookById(id);
+    public ResponseEntity<ApiResponse<Book>> getBookById(@PathVariable Long id) {
+        log.info("Fetching book with ID: {}", id);
+        Book book = bookService.getBookById(id);
+        log.info("Book retrieved: {}", book);
+        return ResponseEntity.ok(new ApiResponse<>(HttpStatus.OK.value(), "Book retrieved successfully", book));
     }
-
 }
-
